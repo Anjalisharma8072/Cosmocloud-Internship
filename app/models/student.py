@@ -13,7 +13,6 @@ class Student(BaseModel):
     address: Address
 
     class Config:
-        arbitary_types_allowed = True
         json_encoders =  {
             ObjectId: str
         }

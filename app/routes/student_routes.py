@@ -1,59 +1,85 @@
 from fastapi import APIRouter, HTTPException, Path, Query, status
-from typing import List, Optional
-from app.models.student import Student
+from fastapi.responses import JSONResponse
 from app.schemas.student_schema import StudentCreate, StudentUpdate
 from app.services.student_service import StudentService
 
 
-router  = APIRouter(prefix="/students" , tags=["students"])
+router = APIRouter(tags=["students"])
 
 
-@router.post("/",response_model=Student,status_code=status.HTTP_201_CREATED)
-async def create_student(student:StudentCreate):
-    return await StudentService.create_student(student)
+@router.post("/students")
+async def create_student(student: StudentCreate):
+    try:
+        new_student = await StudentService.create_student(student)
+        return JSONResponse(content={"id": new_student.id}, status_code=201)
+    except Exception as e:
+        return JSONResponse(content={"message": "Something went wrong", "error": e}, status_code=400)
 
-@router.get("/",response_model=List[Student])
+
+@router.get("/students")
 async def get_students(
-    skip: int  = Query(0,ge = 0),
-    limit: int = Query(10,ge=1 , le = 100)
+    country: str = Query(None, min_length=2, max_length=50), age: int = Query(None)
 ):
-    return await StudentService.get_all_students(skip,limit)
+    try:
+        student_data = await StudentService.get_all_students(country, age)
+        student_dicts = [
+            {k: v for k, v in student.items() if k in ["name", "age"]} for student in student_data
+        ]
+        return JSONResponse(content={"data": student_dicts}, status_code=200)
 
-@router.get("/{student_id}" , response_model=Student)
+    except Exception as e:
+        return JSONResponse(content={"message": "Something went wrong", "error": e}, status_code=400)
+
+
+@router.get("/students/{student_id}")
 async def get_student(
     student_id: str = Path(...,
                            description="The ID of the student to retrieve")
 ):
-    student = await StudentService.get_student_by_id(student_id)
-    if not student:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, 
-            detail="Student not found"
-        )
-    return student
+    try:
+        if not student_id:
+            return JSONResponse(content={"message": "Student ID is required"}, status_code=400)
+        student = await StudentService.get_student_by_id(student_id)
+        if not student:
+            return HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Student not found"
+            )
+        return JSONResponse(content={k: v for k, v in student.items() if k != "_id"}, status_code=200)
+    except Exception as e:
+        return JSONResponse(content={"message": "Something went wrong", "error": e}, status_code=400)
 
 
-@router.patch("/{student_id}", response_model=Student)
+@router.patch("/students/{student_id}")
 async def update_student(
     student_id: str = Path(..., description="The ID of the student to update"),
-    student_data: StudentUpdate = None
+    student_data: StudentUpdate = None,
 ):
-    updated_student = await StudentService.update_student(student_id, student_data)
-    if not updated_student:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Student not found or no update data provided"
-        )
-    return updated_student
+    try:
+        if not student_id:
+            return JSONResponse(content={"message": "Student ID is required"}, status_code=400)
+        updated_student = await StudentService.update_student(student_id, student_data)
+        if not updated_student:
+            return HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Student not found or no update data provided",
+            )
+        return JSONResponse(content={}, status_code=204)
+    except Exception as e:
+        return JSONResponse(content={"message": "Something went wrong", "error": e}, status_code=400)
 
 
-@router.delete("/{student_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/students/{student_id}")
 async def delete_student(
     student_id: str = Path(..., description="The ID of the student to delete")
 ):
-    deleted = await StudentService.delete_student(student_id)
-    if not deleted:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Student not found"
-        )
+    try:
+        if not student_id:
+            return JSONResponse(content={"message": "Student ID is required"}, status_code=400)
+        deleted = await StudentService.delete_student(student_id)
+        if not deleted:
+            return HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Student not found"
+            )
+        return JSONResponse(content={}, status_code=200)
+    except Exception as e:
+        return JSONResponse(content={"message": "Something went wrong", "error": e}, status_code=400)

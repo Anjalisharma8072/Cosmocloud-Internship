@@ -21,7 +21,7 @@ app = FastAPI(
 async def read_root():
     return "Welcome to Student-management Backend"
 
-app.include_router(student_routes.router)
+app.include_router(student_routes.router, prefix="/api")
 
 
 if __name__ == "__main__":

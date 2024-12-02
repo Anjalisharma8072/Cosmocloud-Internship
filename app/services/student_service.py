@@ -16,19 +16,24 @@ class StudentService:
 
     @staticmethod
     async def get_all_students(
-        skip: int = 0,
-        limit: int = 10
+        country: Optional[str] = None,
+        age: Optional[str] = None
     ) -> List[Student]:
         db = Database.db
-        cursor = db.students.find().skip(skip).limit(limit)
-        students = await cursor.to_list(length=limit)
-        return [Student(**{**student, '_id': str(student['_id'])}) for student in students]
+        filters = {}
+        if country:
+            filters["address.country"] = country
+        if age is not None:
+            filters["age"] = {"$gte": age}
+        print(filters)
+        cursor = db.students.find(filters)
+        return await cursor.to_list()
 
     @staticmethod
     async def get_student_by_id(student_id: str) -> Optional[Student]:
         db = Database.db
         student = await db.students.find_one({"_id": ObjectId(student_id)})
-        return Student(**{**student, '_id': str(student['_id'])}) if student else None
+        return {**student, '_id': str(student['_id'])} if student else None
 
     @staticmethod
     async def update_student(student_id: str, student_data: StudentUpdate) -> Optional[Student]:
